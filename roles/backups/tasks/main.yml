@@ -1,0 +1,66 @@
+---
+- name: Inspect backup configuration
+  ansible.builtin.stat:
+    path: "{{ homeinfra_backup_config }}"
+  register: homeinfra_backup_file
+  become: true
+  when: homeinfra_backup_enabled | bool
+
+- name: Require local backup configuration and a valid schedule
+  ansible.builtin.assert:
+    that:
+      - homeinfra_backup_file.stat.exists
+      - homeinfra_backup_config == '/etc/home-infra/backup.json'
+      - homeinfra_backup_hour | int >= 0 and homeinfra_backup_hour | int <= 23
+      - homeinfra_backup_minute | int >= 0 and homeinfra_backup_minute | int <= 59
+  when: homeinfra_backup_enabled | bool
+
+- name: Install scheduled encrypted backup job
+  ansible.builtin.template:
+    src: backup.plist.j2
+    dest: /Library/LaunchDaemons/org.homeinfra.backup.plist
+    owner: root
+    group: wheel
+    mode: '0644'
+    validate: /usr/bin/plutil -lint %s
+  become: true
+  register: homeinfra_backup_plist
+  when: homeinfra_backup_enabled | bool
+
+- name: Inspect whether the schedule is loaded
+  ansible.builtin.command:
+    argv: [/bin/launchctl, print, system/org.homeinfra.backup]
+  register: homeinfra_backup_loaded
+  failed_when: homeinfra_backup_loaded.rc not in [0, 113]
+  changed_when: false
+  check_mode: false
+  become: true
+  when: homeinfra_backup_enabled | bool
+
+- name: Unload a changed backup schedule
+  ansible.builtin.command:
+    argv: [/bin/launchctl, bootout, system/org.homeinfra.backup]
+  become: true
+  changed_when: true
+  when:
+    - homeinfra_backup_enabled | bool
+    - homeinfra_backup_plist.changed
+    - homeinfra_backup_loaded.rc == 0
+
+- name: Enable the backup job before loading its schedule
+  ansible.builtin.command:
+    argv: [/bin/launchctl, enable, system/org.homeinfra.backup]
+  become: true
+  changed_when: true
+  when:
+    - homeinfra_backup_enabled | bool
+    - homeinfra_backup_plist.changed or homeinfra_backup_loaded.rc != 0
+
+- name: Load the schedule without running the backup immediately
+  ansible.builtin.command:
+    argv: [/bin/launchctl, bootstrap, system, /Library/LaunchDaemons/org.homeinfra.backup.plist]
+  become: true
+  changed_when: true
+  when:
+    - homeinfra_backup_enabled | bool
+    - homeinfra_backup_plist.changed or homeinfra_backup_loaded.rc != 0

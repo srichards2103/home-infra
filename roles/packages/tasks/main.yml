@@ -1,0 +1,20 @@
+---
+- name: Detect an existing GUI Tailscale installation before installing a variant
+  ansible.builtin.stat:
+    path: /Applications/Tailscale.app
+  register: homeinfra_existing_tailscale_gui
+  when: homeinfra_tailscale_enabled | bool
+
+- name: Require explicit migration from GUI Tailscale
+  ansible.builtin.assert:
+    that: not homeinfra_existing_tailscale_gui.stat.exists
+    fail_msg: Follow Tailscale's macOS variant migration guide before enabling the CLI daemon.
+  when: homeinfra_tailscale_enabled | bool
+
+- name: Install host packages as the connected administrator, never as root
+  community.general.homebrew:
+    name: "{{ homeinfra_packages + (['tailscale'] if homeinfra_tailscale_enabled else []) + (['cloudflared'] if homeinfra_cloudflare_enabled else []) }}"
+    state: present
+    path: "{{ homeinfra_brew_prefix }}/bin"
+    update_homebrew: false
+  become: false

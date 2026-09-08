@@ -1,0 +1,19 @@
+---
+all:
+  children:
+    mac_servers:
+      hosts:
+        mini:
+          ansible_host: mini.example.ts.net
+          ansible_user: serveradmin
+          ansible_python_interpreter: /opt/homebrew/opt/python@3.13/bin/python3.13
+          homeinfra_hostname: home-mini
+          homeinfra_services:
+            - name: hello
+              user: hi_hello
+
+# For the initial local run, copy to inventory/local.yml and replace the host with:
+# mini:
+#   ansible_connection: local
+#   ansible_python_interpreter: /opt/homebrew/opt/python@3.13/bin/python3.13
+# Configure the rest through inventory/group_vars/all.yml and hosts/private settings.

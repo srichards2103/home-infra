@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "home-infra"
+version = "0.1.0"
+description = "Rebuildable macOS home servers: provisioning, native services and recoverable deployments"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "MIT"
+dependencies = []
+
+[project.scripts]
+homeinfra = "homeinfra.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "ruff>=0.11,<1", "ansible-core>=2.19,<2.20", "PyYAML>=6,<7"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/homeinfra"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = [".ansible", "dist", "artifacts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S105", "S106", "S108", "S603", "S607"]

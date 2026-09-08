@@ -1,0 +1,47 @@
+---
+- name: Read current local hostname
+  ansible.builtin.command: /usr/sbin/scutil --get LocalHostName
+  register: homeinfra_current_hostname
+  changed_when: false
+  check_mode: false
+
+- name: Set local hostname
+  ansible.builtin.command:
+    argv: [/usr/sbin/scutil, --set, LocalHostName, "{{ homeinfra_hostname }}"]
+  become: true
+  when: homeinfra_current_hostname.stdout != homeinfra_hostname
+
+- name: Read current computer name
+  ansible.builtin.command: /usr/sbin/scutil --get ComputerName
+  register: homeinfra_current_computer_name
+  changed_when: false
+  check_mode: false
+
+- name: Set computer name
+  ansible.builtin.command:
+    argv: [/usr/sbin/scutil, --set, ComputerName, "{{ homeinfra_hostname }}"]
+  become: true
+  when: homeinfra_current_computer_name.stdout != homeinfra_hostname
+
+- name: Read power configuration
+  ansible.builtin.command: /usr/bin/pmset -g custom
+  register: homeinfra_power
+  changed_when: false
+  check_mode: false
+
+- name: Disable idle system sleep on AC power
+  ansible.builtin.command: /usr/bin/pmset -c sleep 0
+  become: true
+  when:
+    - homeinfra_prevent_sleep | bool
+    - not (homeinfra_power.stdout is search('(?m)^\\s*sleep\\s+0\\s*$'))
+
+- name: Restore power automatically after an outage
+  ansible.builtin.command: /usr/bin/pmset -c autorestart 1
+  become: true
+  when:
+    - homeinfra_restart_after_power_failure | bool
+    - not (homeinfra_power.stdout is search('(?m)^\\s*autorestart\\s+1\\s*$'))
+
+# Remote Login, FileVault, firewall policy, OS updates and recovery keys are explicit
+# first-boot operations. This role does not change them or disable disk encryption.

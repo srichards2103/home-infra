@@ -1,0 +1,23 @@
+---
+homeinfra_apply: false
+homeinfra_hostname: home-mini
+homeinfra_packages:
+  - python@3.13
+  - restic
+homeinfra_services: []
+homeinfra_prevent_sleep: true
+homeinfra_restart_after_power_failure: true
+homeinfra_tailscale_enabled: false
+homeinfra_cloudflare_enabled: false
+homeinfra_backup_enabled: false
+
+# Enabling a network role installs a daemon, but never logs into your account.
+# Keep actual network identifiers and inventory overrides in ignored local files.
+homeinfra_cloudflare_tunnel_id: ""
+homeinfra_cloudflare_credentials_file: /etc/home-infra/secrets/cloudflare.json
+homeinfra_cloudflare_routes: []
+# Example: [{hostname: demo.example.com, service: 'http://127.0.0.1:8090'}]
+
+homeinfra_backup_config: /etc/home-infra/backup.json
+homeinfra_backup_hour: 3
+homeinfra_backup_minute: 15

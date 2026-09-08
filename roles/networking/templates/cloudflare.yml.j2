@@ -1,0 +1,8 @@
+tunnel: {{ homeinfra_cloudflare_tunnel_id | to_json }}
+credentials-file: {{ homeinfra_cloudflare_credentials_file | to_json }}
+ingress:
+{% for route in homeinfra_cloudflare_routes %}
+  - hostname: {{ route.hostname | to_json }}
+    service: {{ route.service | to_json }}
+{% endfor %}
+  - service: http_status:404

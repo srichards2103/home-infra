@@ -1,0 +1,38 @@
+---
+- name: Create immutable service administration directories
+  ansible.builtin.file:
+    path: "/opt/home-infra/apps/{{ homeinfra_service.name }}/{{ item }}"
+    state: directory
+    owner: root
+    group: wheel
+    mode: '0755'
+  loop: ['', releases]
+  become: true
+
+- name: Record the provisioned execution identity
+  ansible.builtin.copy:
+    content: "{{ {'user': homeinfra_service.user} | to_nice_json }}\n"
+    dest: "/opt/home-infra/apps/{{ homeinfra_service.name }}/policy.json"
+    owner: root
+    group: wheel
+    mode: '0644'
+  become: true
+
+- name: Create service-owned persistent data directories
+  ansible.builtin.file:
+    path: "/opt/home-infra/data/{{ homeinfra_service.name }}/{{ item }}"
+    state: directory
+    owner: "{{ homeinfra_service.user }}"
+    group: staff
+    mode: '0700'
+  loop: ['', tmp]
+  become: true
+
+- name: Create service log directory
+  ansible.builtin.file:
+    path: "/var/log/home-infra/{{ homeinfra_service.name }}"
+    state: directory
+    owner: "{{ homeinfra_service.user }}"
+    group: staff
+    mode: '0700'
+  become: true

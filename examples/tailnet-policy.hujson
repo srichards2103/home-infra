@@ -1,0 +1,9 @@
+// Merge this example into your existing tailnet policy; do not replace it blindly.
+// Names, groups and tags are examples. Enrollment and policy apply are manual.
+{
+  "groups": {"group:operators": ["operator@example.com"]},
+  "tagOwners": {"tag:home-server": ["group:operators"]},
+  "grants": [
+    {"src": ["group:operators"], "dst": ["tag:home-server"], "ip": ["tcp:22", "tcp:443"]}
+  ]
+}

@@ -1,0 +1,102 @@
+---
+- name: Inspect GUI Tailscale installations before provisioning CLI-only daemon
+  ansible.builtin.stat:
+    path: /Applications/Tailscale.app
+  register: homeinfra_tailscale_gui
+  when: homeinfra_tailscale_enabled | bool
+
+- name: Refuse to overlap Tailscale variants
+  ansible.builtin.assert:
+    that: not homeinfra_tailscale_gui.stat.exists
+    fail_msg: Remove the existing GUI Tailscale installation using its documented migration procedure first.
+  when: homeinfra_tailscale_enabled | bool
+
+- name: Install Tailscale system daemon definition
+  ansible.builtin.template:
+    src: tailscale.plist.j2
+    dest: /Library/LaunchDaemons/org.homeinfra.tailscaled.plist
+    owner: root
+    group: wheel
+    mode: '0644'
+    validate: /usr/bin/plutil -lint %s
+  become: true
+  register: homeinfra_tailscale_plist
+  when: homeinfra_tailscale_enabled | bool
+
+- name: Run Tailscale before desktop login
+  community.general.launchd:
+    name: org.homeinfra.tailscaled
+    state: "{{ 'restarted' if homeinfra_tailscale_plist.changed else 'started' }}"
+    enabled: true
+  become: true
+  when: homeinfra_tailscale_enabled | bool
+
+- name: Validate Cloudflare configuration
+  ansible.builtin.assert:
+    that:
+      - homeinfra_cloudflare_tunnel_id is match('^[0-9a-f-]{36}$')
+      - homeinfra_cloudflare_routes | length > 0
+      - homeinfra_cloudflare_credentials_file == '/etc/home-infra/secrets/cloudflare.json'
+  when: homeinfra_cloudflare_enabled | bool
+
+- name: Validate public hostname routes
+  ansible.builtin.assert:
+    that:
+      - item.hostname is match('^[a-z0-9][a-z0-9.-]+[a-z0-9]$')
+      - item.service is match('^http://127[.]0[.]0[.]1:[0-9]+$')
+  loop: "{{ homeinfra_cloudflare_routes }}"
+  when: homeinfra_cloudflare_enabled | bool
+
+- name: Inspect Cloudflare credentials without reading contents
+  ansible.builtin.stat:
+    path: "{{ homeinfra_cloudflare_credentials_file }}"
+  become: true
+  register: homeinfra_cloudflare_secret
+  when: homeinfra_cloudflare_enabled | bool
+
+- name: Require private, manually installed Cloudflare credentials
+  ansible.builtin.assert:
+    that:
+      - homeinfra_cloudflare_secret.stat.exists
+      - homeinfra_cloudflare_secret.stat.mode == '0600'
+      - homeinfra_cloudflare_secret.stat.uid == 0
+      - not homeinfra_cloudflare_secret.stat.islnk
+  when: homeinfra_cloudflare_enabled | bool
+
+- name: Write explicit Cloudflare routes with a final deny route
+  ansible.builtin.template:
+    src: cloudflare.yml.j2
+    dest: /etc/home-infra/cloudflare.yml
+    owner: root
+    group: wheel
+    mode: '0600'
+  become: true
+  register: homeinfra_cloudflare_config
+  when: homeinfra_cloudflare_enabled | bool
+
+- name: Validate Cloudflare ingress before starting
+  ansible.builtin.command:
+    argv: ["{{ homeinfra_brew_prefix }}/bin/cloudflared", tunnel, --config, /etc/home-infra/cloudflare.yml, ingress, validate]
+  become: true
+  changed_when: false
+  when: homeinfra_cloudflare_enabled | bool and not ansible_check_mode
+
+- name: Install Cloudflare system daemon definition
+  ansible.builtin.template:
+    src: cloudflare.plist.j2
+    dest: /Library/LaunchDaemons/org.homeinfra.cloudflared.plist
+    owner: root
+    group: wheel
+    mode: '0644'
+    validate: /usr/bin/plutil -lint %s
+  become: true
+  register: homeinfra_cloudflare_plist
+  when: homeinfra_cloudflare_enabled | bool
+
+- name: Run Cloudflare Tunnel
+  community.general.launchd:
+    name: org.homeinfra.cloudflared
+    state: "{{ 'restarted' if homeinfra_cloudflare_plist.changed or homeinfra_cloudflare_config.changed else 'started' }}"
+    enabled: true
+  become: true
+  when: homeinfra_cloudflare_enabled | bool

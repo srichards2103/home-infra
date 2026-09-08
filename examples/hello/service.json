@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "name": "hello",
+  "user": "hi_hello",
+  "command": ["/opt/homebrew/opt/python@3.13/bin/python3.13", "{release}/app.py"],
+  "environment": {"PORT": "8090"},
+  "health": {
+    "url": "http://127.0.0.1:8090/healthz",
+    "timeout": 15,
+    "expect": "\"release\": \"{version}\""
+  }
+}

@@ -1,0 +1,74 @@
+---
+- name: Validate unique service names and users
+  ansible.builtin.assert:
+    that:
+      - homeinfra_services | map(attribute='name') | unique | length == homeinfra_services | length
+      - homeinfra_services | map(attribute='user') | unique | length == homeinfra_services | length
+
+- name: Validate each service identity
+  ansible.builtin.assert:
+    that:
+      - item.name is match('^[a-z][a-z0-9-]{0,39}$')
+      - item.user is match('^hi_[a-z0-9_]{1,20}$')
+  loop: "{{ homeinfra_services }}"
+
+- name: Create root-owned infrastructure directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: wheel
+    mode: '0755'
+  loop:
+    - /opt/home-infra
+    - /opt/home-infra/bin
+    - /opt/home-infra/apps
+    - /opt/home-infra/data
+    - /var/log/home-infra
+    - /etc/home-infra
+  become: true
+
+- name: Create traversable secret directory with no directory listing for services
+  ansible.builtin.file:
+    path: /etc/home-infra/secrets
+    state: directory
+    owner: root
+    group: wheel
+    mode: '0711'
+  become: true
+
+- name: Install the standard-library runtime archive built on the controller
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/dist/homeinfra.pyz"
+    dest: /opt/home-infra/bin/homeinfra.pyz
+    owner: root
+    group: wheel
+    mode: '0644'
+  become: true
+
+- name: Install CLI entry point
+  ansible.builtin.template:
+    src: homeinfra.j2
+    dest: /opt/home-infra/bin/homeinfra
+    owner: root
+    group: wheel
+    mode: '0755'
+  become: true
+
+- name: Create dedicated runtime accounts
+  ansible.builtin.user:
+    name: "{{ item.user }}"
+    comment: "Home Infra runtime for {{ item.name }}"
+    home: "/opt/home-infra/data/{{ item.name }}"
+    shell: /usr/bin/false
+    system: true
+    hidden: true
+    create_home: false
+  loop: "{{ homeinfra_services }}"
+  become: true
+
+- name: Provision each service's directories
+  ansible.builtin.include_tasks: service.yml
+  loop: "{{ homeinfra_services }}"
+  loop_control:
+    loop_var: homeinfra_service

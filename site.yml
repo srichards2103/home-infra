@@ -1,0 +1,30 @@
+---
+- name: Provision a dedicated macOS home server
+  hosts: mac_servers
+  gather_facts: true
+  pre_tasks:
+    - name: Require a supported target and explicit apply intent
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.system == 'Darwin'
+          - ansible_facts.architecture in ['arm64', 'x86_64']
+          - homeinfra_apply | bool or ansible_check_mode
+          - homeinfra_hostname is match('^[a-zA-Z][a-zA-Z0-9-]{0,62}$')
+        fail_msg: Review inventory, then pass -e homeinfra_apply=true to configure a Mac.
+    - name: Determine package prefix
+      ansible.builtin.set_fact:
+        homeinfra_brew_prefix: "{{ '/opt/homebrew' if ansible_facts.architecture == 'arm64' else '/usr/local' }}"
+    - name: Check Homebrew bootstrap prerequisite
+      ansible.builtin.stat:
+        path: "{{ homeinfra_brew_prefix }}/bin/brew"
+      register: homeinfra_brew
+    - name: Require the documented first-boot bootstrap
+      ansible.builtin.assert:
+        that: homeinfra_brew.stat.exists
+        fail_msg: Install Homebrew as your administrator account before applying this playbook.
+  roles:
+    - packages
+    - macos
+    - services
+    - networking
+    - backups

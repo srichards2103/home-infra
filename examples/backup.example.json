@@ -1,0 +1,7 @@
+{
+  "name": "home-mini",
+  "repository": "sftp:backup-user@backup.example:/srv/backups/home-mini",
+  "password_file": "/etc/home-infra/secrets/restic-password",
+  "paths": ["/opt/home-infra/data", "/etc/home-infra"],
+  "restic": "/opt/homebrew/bin/restic"
+}
